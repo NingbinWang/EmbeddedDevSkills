@@ -1,4 +1,4 @@
-# Linux内核代码风格评审规则
+# Linux内核代码审查技能文件 - 编码与命名规范
 
 基于Linux内核代码风格文档 (coding-style.rst) 提取的关键规则。
 
@@ -131,6 +131,7 @@
 - Kconfig缩进：config行用制表符，help信息加2个空格
 
 ## 自动化检查工具
+当使用自动化检查工具时，需要请用户提供内核的源代码路径。
 - `scripts/checkpatch.pl` - 检查补丁的编码风格
 - `clang-format` - 代码格式化工具
 - `indent -kr -i8` - K&R风格格式化
