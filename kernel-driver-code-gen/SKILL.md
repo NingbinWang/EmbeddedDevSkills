@@ -7,14 +7,14 @@ description: 检查并完善Kernel内核驱动代码实现，协助使用者尽�
 
 需要查看
 
-**前置条件**: 设计文档 `ascend-kernel/csrc/ops/<op_name>/design.md` 已就绪，目录结构已创建。
+**前置条件**: 设计文档 用户指定的驱动设计文档
 
 ## 工作流程总览
 
 ```
-读取设计文档 → 加载 reference → 选择模板 → 生成 op_host + op_kernel
-    → 框架适配 (ops.h + register.cpp + csrc/CMakeLists.txt)
-    → 调用 ascendc-operator-compile-debug skill (编译 + 安装 + 测试)
+读取设计文档 → 加载 reference → 选择模板 → 生成相应的代码
+    → 框架适配 (主要适配内核的Modules框架)
+    → 调用相关技能(编译 + 安装 + 测试)
 ```
 
 ---

@@ -1,13 +1,3 @@
-<!--
- * @Author: wangningbin<188101696@qq.com>
- * @Date: 2026-04-20 22:52:37
- * @LastEditors: wangningbin<188101696@qq.com>
- * @LastEditTime: 2026-04-21 23:14:09
- * @FilePath: /develop/ReadMe.md
- * @Description: 
- * 
- * Copyright (c) 2026 by Tuubu, All Rights Reserved. 
--->
 <div align="center">
 
 # 嵌入式Linux的智能AI Skill-EmbeddedDevelopmentSkills
@@ -32,23 +22,30 @@
 </div>
 
 ## 技能描述
-* kernel-code-gen - 主要是生成相应的内核代码，目前尚未进行相应的修改
-* kernel-drvier-code-review - 主要是内核代码的review，目前支持内核代码review，代码生成以及相应的代码优化等技能。目前已经完成，大家可以尽情使用。其主要的代码规范[Linux 内核代码风格](https://docs.kernel.org/translations/zh_CN/process/coding-style.html)
+* kernel-drvier-code-gen - 主要是生成相应的内核驱动代码，该技能主要是自动生成相应的内核驱动的代码框架，然后由用户根据自己的Spec或者需求进行修改，同时提供驱动代码检查。
+* kernel-code-review - 主要是内核代码的review，目前支持内核代码review，代码生成以及相应的代码优化等技能。目前已经完成，大家可以尽情使用。其主要的代码规范[Linux 内核代码风格](https://docs.kernel.org/translations/zh_CN/process/coding-style.html)
 * kernel-perf-analysis - 主要做性能分析使用，目前直接从简说linux的自制复制过来，诊断Linux系统在CPU、内存、I/O和网络方面的性能问题与瓶颈。适用于用户要求分析出现以下状况：运行缓慢、过载、卡顿、超时、丢包、内存交换、磁盘阻塞，或显示高负载 / 高延迟。目标是定位瓶颈所在的子系统、判断瓶颈出现在内核态还是应用态，并定位应用层中导致问题的具体进程。后续会逐步完善更改。
-* linuxc-code-gen - 使用LinuxC 进行代码生成，需要提供需求与代码生成以及相应的代码优化等技能，协助快速开发。
+* linuxc-code-gen - 使用LinuxC 进行代码生成，需要提供需求与代码生成以及相应的代码优化等技能，协助快速开发，作者主要目标是做应用端测试使用。当然也欢迎各位做嵌入式开发的应用同学们增加它的技能集，这里主要面向C/C++语言开发。
 
 ---
 
 ## 关于更新
 * 2026.04.20 更新了kernel-code-review技能，添加了代码review的详细描述。
-* 陆续更新中...
+* 2026.04.22 添加了linuxc-code-gen技能，添加了linuxc-code-gen技能的详细描述。
+*
+
+## 关于规划
+这里主要是对这几个技能集做任务规划，后续会逐步完善。
+* kernel-drvier-code-gen:提供I2C\SPI\SDIO\PCIe\NETMASK驱动模板，主要包含字符设备、块设备、网络设备等模板，同时需要支持中断、timer、DMA、FIFO、RDTree等等的功能模板与相应的检查与规范。
+* kernel-code-review:该skill作者认为已经完成，期待大家的时候过后，提交issue反馈，作者再跟进完善。
+* kernel-perf-analysis:目前作者认为这个skill还是比较欠缺的，有很多命令在嵌入式领域走的busybox中可能没有，作者会根据自己的一些项目陆续完善。
+* linuxc-code-gen:这个skill作者大体的想法是用户提供底层的API与Linux C基本通用的API，进行代码生成，同时提供相应的代码检查与规范。当然作者发现各个项目可能有不同的API需求或者是代码规范，因此作者初步的想法是提供一个模板，用户自己填写规范。
 
 ---
 ## 演示
 笔者暂时无法展示演示功能，主要是因为作者目前仅买了DeepSeek的API，会遇到
 ```
-API Error: 400 {"error":{"message":"This model's maximum context length is 102400 tokens. However, you requested 128700 tokens (63164 in the messages, 65536 in the completion). Please reduce the length of the messages or                                                       
-     completion.","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}
+API Error: 400 {"error":{"message":"This model's maximum context length is 102400 tokens. However, you requested 128700 tokens (63164 in the messages, 65536 in the completion). Please reduce the length of the messages or completion.","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}
 ```
 在test中，用claude code进行了 ‘/kernel-code-review ./test/kernelmodule’ 代码规范检查进行测试，测试结果在result下。
 
