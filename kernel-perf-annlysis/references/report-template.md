@@ -1,47 +1,47 @@
-# Report Template
+# 性能分析报告模板
 
-Use this structure in the final answer. Keep it concise, but do not omit the conclusion.
+在最终答案中使用此结构。保持简洁，但不要省略结论部分。
 
-## Symptom
+## 问题现象
 
-- What the user observed
-- Relevant time window
-- Commands or artifacts used
+- 用户观察到的现象
+- 相关时间窗口
+- 使用的命令或相关证据
 
-## Evidence By Area
+## 各领域证据分析
 
 ### CPU
 
-- System-wide evidence
-- Process-level evidence
-- Whether CPU is primary, secondary, or not the main issue
+- 全局系统级证据
+- 进程级证据
+- CPU是否为主要、次要问题，或非主要问题
 
-### Memory
+### 内存
 
-- System-wide evidence
-- Process-level evidence
-- Whether memory is primary, secondary, or not the main issue
+- 全局系统级证据
+- 进程级证据
+- 内存是否为主要、次要问题，或非主要问题
 
 ### I/O
 
-- System-wide evidence
-- Process-level evidence
-- Whether I/O is primary, secondary, or not the main issue
+- 全局系统级证据
+- 进程级证据
+- I/O是否为主要、次要问题，或非主要问题
 
-### Network
+### 网络
 
-- System-wide evidence
-- Process-level evidence
-- Whether network is primary, secondary, or not the main issue
+- 全局系统级证据
+- 进程级证据
+- 网络是否为主要、次要问题，或非主要问题
 
-## Conclusion
+## 结论
 
-State these three items explicitly:
+明确陈述以下三项内容：
 
-1. Primary bottleneck: CPU, memory, I/O, or network.
-2. Bottleneck layer: kernel space or application space.
-3. Triggering process: the main application process, or `none identified` if the issue is not attributable to a user-space process.
+1. **主要瓶颈**：CPU、内存、I/O或网络
+2. **瓶颈层面**：内核空间或应用程序空间
+3. **触发进程**：主要的应用程序进程，或若问题无法归因于用户空间进程则标注为`未识别`
 
-## Next Step
+## 后续步骤
 
-- Give the single best next command or remediation direction.
+- 提供最佳的下一步命令或修复方向

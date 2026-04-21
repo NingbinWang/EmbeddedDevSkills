@@ -1,8 +1,8 @@
-# Network Analysis
+# 网络性能分析指南
 
-## System-Wide Checks
+## 全局系统检查
 
-Start with link, socket, and retransmission health:
+首先检查网络链路、套接字和重传健康状况：
 
 ```bash
 sar -n DEV 1 3
@@ -11,15 +11,15 @@ ss -s
 ip -s link
 ```
 
-Focus on:
+重点关注以下指标：
 
-- interface throughput and packet rate
-- drops, errors, overruns
-- retransmits and resets
-- listen queue and established socket growth
-- backlog pressure or connection-state anomalies
+- 接口吞吐量和数据包速率
+- 丢包、错误和溢出情况
+- 重传和连接重置次数
+- 监听队列和已建立套接字的增长趋势
+- 积压压力或连接状态异常
 
-Useful supporting checks:
+辅助检查命令：
 
 ```bash
 netstat -s
@@ -28,9 +28,9 @@ nethogs
 iftop
 ```
 
-## Process Drill-Down
+## 进程级深入排查
 
-Identify which process owns the busy or unhealthy sockets:
+识别占用繁忙或异常套接字的进程：
 
 ```bash
 ss -tpn
@@ -38,31 +38,31 @@ ss -lntp
 nethogs
 ```
 
-If packet-level evidence is needed:
+当需要数据包级别的证据时：
 
 ```bash
 tcpdump -i <iface> -nn -s 128 -c 200
 ping <target>
 ```
 
-`tcpdump` should be short and bounded. Keep packet count capped and avoid full-payload capture unless necessary.
+**注意**：`tcpdump`使用应简短且有明确限制。保持数据包数量上限，除非必要，避免完整载荷捕获。
 
-Active load testing (non-production preferred, explicit approval required):
+主动负载测试（建议在非生产环境进行，需获得明确授权）：
 
 ```bash
 iperf3 -c <target>
 ```
 
-## Interpretation
+## 性能指标解读指南
 
-- High retransmits, drops, resets, or backlog overflow indicate network-path or kernel TCP pressure.
-- High throughput with normal retransmits may be healthy; check latency and queueing before calling it a bottleneck.
-- Many `TIME_WAIT`, `SYN_RECV`, or accept-queue issues can be connection-management problems rather than raw bandwidth shortage.
-- If one process owns most hot sockets or drives abnormal connection churn, that process is the application trigger.
-- High softirq CPU combined with network traffic often means the bottleneck is in kernel networking or interrupt handling.
+- **高重传率、丢包、连接重置或积压队列溢出**：表明网络路径或内核TCP存在压力
+- **高吞吐量但重传正常**：可能是健康状态；在判定为瓶颈前需检查延迟和队列情况
+- **大量`TIME_WAIT`、`SYN_RECV`状态或接收队列问题**：通常是连接管理问题而非原始带宽不足
+- **单一进程拥有大多数热点套接字或驱动异常连接波动**：该进程即为应用程序触发因素
+- **高软中断CPU占用结合网络流量**：通常表明瓶颈位于内核网络处理或中断处理中
 
-## Kernel Vs Application
+## 内核态与用户态网络瓶颈区分
 
-- Application space: connection storms, poor socket usage, tiny writes, slow reads, or inefficient protocol behavior originate from a process.
-- Kernel space: softirq, TCP/IP stack, backlog handling, driver/NIC behavior, or socket buffer pressure dominates.
-- Mixed case: an application can trigger kernel network pressure. Report the kernel hotspot and name the process causing it.
+- **用户态瓶颈特征**：连接风暴、套接字使用不当、微小写操作、读取缓慢或低效的协议行为源自特定进程
+- **内核态瓶颈特征**：软中断(softirq)、TCP/IP协议栈、积压队列处理、网卡驱动/NIC行为或套接字缓冲区压力占主导地位
+- **混合型瓶颈**：应用程序可能触发内核网络压力。应报告内核热点并指明引发问题的进程

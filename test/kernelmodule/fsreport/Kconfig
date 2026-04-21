@@ -1,0 +1,5 @@
+config FSREPORT
+	bool "File Systems Report Notify"
+	default y
+	depends on NET
+

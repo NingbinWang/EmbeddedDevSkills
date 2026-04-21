@@ -1,3 +1,13 @@
+<!--
+ * @Author: wangningbin<188101696@qq.com>
+ * @Date: 2026-04-20 22:52:37
+ * @LastEditors: wangningbin<188101696@qq.com>
+ * @LastEditTime: 2026-04-21 23:14:09
+ * @FilePath: /develop/ReadMe.md
+ * @Description: 
+ * 
+ * Copyright (c) 2026 by Tuubu, All Rights Reserved. 
+-->
 <div align="center">
 
 # 嵌入式Linux的智能AI Skill-EmbeddedDevelopmentSkills
@@ -12,6 +22,8 @@
 
 **目前主要技能包含内核代码的review,代码生成以及相应的代码优化等技能。**
 
+希望得到大家的关注，十分感谢，多多提issue。 作者会及时更新。
+
 <br>
 
 
@@ -21,8 +33,9 @@
 
 ## 技能描述
 * kernel-code-gen - 主要是生成相应的内核代码，目前尚未进行相应的修改
-* kernel-code-review - 主要是内核代码的review，目前支持内核代码review，代码生成以及相应的代码优化等技能。
+* kernel-drvier-code-review - 主要是内核代码的review，目前支持内核代码review，代码生成以及相应的代码优化等技能。目前已经完成，大家可以尽情使用。其主要的代码规范[Linux 内核代码风格](https://docs.kernel.org/translations/zh_CN/process/coding-style.html)
 * kernel-perf-analysis - 主要做性能分析使用，目前直接从简说linux的自制复制过来，诊断Linux系统在CPU、内存、I/O和网络方面的性能问题与瓶颈。适用于用户要求分析出现以下状况：运行缓慢、过载、卡顿、超时、丢包、内存交换、磁盘阻塞，或显示高负载 / 高延迟。目标是定位瓶颈所在的子系统、判断瓶颈出现在内核态还是应用态，并定位应用层中导致问题的具体进程。后续会逐步完善更改。
+* linuxc-code-gen - 使用LinuxC 进行代码生成，需要提供需求与代码生成以及相应的代码优化等技能，协助快速开发。
 
 ---
 
@@ -37,7 +50,7 @@
 API Error: 400 {"error":{"message":"This model's maximum context length is 102400 tokens. However, you requested 128700 tokens (63164 in the messages, 65536 in the completion). Please reduce the length of the messages or                                                       
      completion.","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}
 ```
-后续会使用百练的模型进行测试。
+在test中，用claude code进行了 ‘/kernel-code-review ./test/kernelmodule’ 代码规范检查进行测试，测试结果在result下。
 
 
 

@@ -1,8 +1,8 @@
-# I/O Analysis
+# I/O性能分析指南
 
-## System-Wide Checks
+## 全局系统检查
 
-Start with filesystem capacity and disk latency:
+首先检查文件系统容量和磁盘延迟情况：
 
 ```bash
 df -h
@@ -11,32 +11,32 @@ iostat -xz 1 3
 vmstat 1 5
 ```
 
-Focus on:
+重点关注以下指标：
 
-- `%util`: device busy time
-- `await`: end-to-end I/O latency
-- `svctm` when available
-- `r/s`, `w/s`, `rkB/s`, `wkB/s`
-- queue depth and whether latency rises with utilization
-- inode exhaustion or full filesystem conditions
+- `%util`：设备忙时占比（Device Utilization）
+- `await`：端到端I/O延迟时间（Average Wait Time）
+- `svctm`：服务时间（当可用时）
+- `r/s`、`w/s`、`rkB/s`、`wkB/s`：读写操作频率和吞吐量
+- 队列深度以及延迟是否随利用率上升而增加
+- inode耗尽或文件系统空间不足的情况
 
-Useful supporting checks:
+辅助检查命令：
 
 ```bash
 pidstat -d 1 3
 iotop -oPa
 ```
 
-## Process Drill-Down
+## 进程级深入排查
 
-Find the processes generating I/O or suffering high I/O delay:
+定位产生I/O负载或遭受高I/O延迟的进程：
 
 ```bash
 pidstat -d -p ALL 1 3
 iotop -oPa
 ```
 
-If needed, inspect file and block behavior:
+必要时，深入检查文件和块设备行为：
 
 ```bash
 timeout 10s strace -tt -T -p <pid>
@@ -45,18 +45,18 @@ timeout 15s biotop
 timeout 15s biolatency
 ```
 
-Run the commands above only as escalation steps with explicit approval, because they may require elevated privileges and can add overhead.
+**注意**：上述命令仅在获得明确授权后作为升级分析步骤使用，因为它们可能需要提升权限且会增加系统开销。
 
-## Interpretation
+## 性能指标解读指南
 
-- High `%wa` plus high disk `await` usually means storage is the bottleneck.
-- High `%util` with low throughput can still mean a slow device due to small random I/O.
-- Full disk or inode exhaustion can look like application slowness but is fundamentally an I/O/filesystem issue.
-- One process dominating reads/writes or showing high `iodelay` is a likely application trigger.
-- If the storage device is calm but the process is stuck in file operations, inspect filesystem locks, metadata overhead, and syscall timing.
+- **高`%wa` + 高磁盘`await`**：通常表明存储设备是系统瓶颈
+- **高`%util`但低吞吐量**：可能由于小规模随机I/O导致设备响应缓慢
+- **磁盘空间耗尽或inode耗尽**：表面上看似应用程序变慢，但本质上是I/O/文件系统问题
+- **单一进程主导读写操作或显示高`iodelay`**：很可能是应用程序层面的触发因素
+- **存储设备状态正常但进程卡在文件操作中**：需检查文件系统锁、元数据开销和系统调用时序
 
-## Kernel Vs Application
+## 内核态与用户态I/O瓶颈区分
 
-- Application space: a process issues inefficient read/write patterns, sync-heavy behavior, or excessive logging/checkpointing.
-- Kernel space: block layer, filesystem, page cache writeback, device driver, or mount/filesystem behavior dominates the delay.
-- Mixed case: a process can create the pressure while the visible waiting time accumulates in kernel I/O paths. Report both clearly.
+- **用户态瓶颈特征**：进程发出低效的读写模式、过度同步操作(sync-heavy)或产生过多的日志/检查点(checkpointing)
+- **内核态瓶颈特征**：块设备层、文件系统、页缓存回写(page cache writeback)、设备驱动程序或挂载/文件系统行为导致延迟占主导地位
+- **混合型瓶颈**：应用程序进程产生I/O压力，而可见的等待时间累积在内核I/O路径中。此类情况需清晰地同时报告两个层面的问题

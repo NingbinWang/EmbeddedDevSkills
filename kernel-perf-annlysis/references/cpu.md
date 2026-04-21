@@ -1,8 +1,8 @@
-# CPU Analysis
+# CPU性能分析指南
 
-## System-Wide Checks
+## 全局系统检查
 
-Start with overall CPU pressure and scheduler signals:
+首先进行全面的CPU压力和调度器状态检查：
 
 ```bash
 top -b -n 1
@@ -12,18 +12,18 @@ pidstat -u -t 1 3
 sar -u 1 3
 ```
 
-Focus on:
+重点关注以下指标：
 
-- `%us`: user-space CPU pressure
-- `%sy`: kernel CPU pressure
-- `%wa`: waiting on I/O, usually not a pure CPU bottleneck
-- `%hi` and `%si`: hardware/software interrupt pressure
-- run queue, load average, and context switches
-- single-core hotspots versus whole-machine saturation
+- `%us`：用户空间CPU使用率（User CPU）
+- `%sy`：内核空间CPU使用率（System CPU）
+- `%wa`：I/O等待时间占比（通常表明存在I/O瓶颈而非纯CPU瓶颈）
+- `%hi`和`%si`：硬件中断和软件中断的CPU占用
+- 运行队列长度、系统负载平均值和上下文切换频率
+- 单核热点与整机CPU饱和度的对比分析
 
-## Process Drill-Down
+## 进程级深入排查
 
-Find which process or thread consumes CPU:
+定位具体消耗CPU资源的进程或线程：
 
 ```bash
 ps -eo pid,ppid,cmd,%cpu,%mem --sort=-%cpu | head
@@ -31,14 +31,14 @@ top -H -b -n 1
 pidstat -u -t -p ALL 1 3
 ```
 
-If one process is clearly hot, use low-intrusion checks first:
+当发现某个特定进程CPU占用明显偏高时，优先采用低侵入性检查方法：
 
 ```bash
 pidstat -u -t -p <pid> 1 5
 cat /proc/<pid>/sched
 ```
 
-Escalation only (explicit approval, bounded duration):
+仅在必要时进行深度分析（需明确授权且严格控制执行时间）：
 
 ```bash
 perf top -p <pid>
@@ -47,16 +47,16 @@ perf report
 timeout 10s strace -tt -T -p <pid>
 ```
 
-## Interpretation
+## 性能指标解读指南
 
-- High `%us` with hot user threads usually means application-space CPU bottleneck.
-- High `%sy` means kernel work is expensive; inspect syscalls, locks, networking, filesystem, and interrupts.
-- High `%si` or `%hi` suggests interrupt pressure, often network or driver related.
-- High load with modest `%us` and `%sy` means do not stop at CPU; check I/O wait, blocked tasks, and lock contention.
-- If total CPU is high but no single long-lived process stands out, look for short-lived worker churn, fork storms, or thread bursts.
+- **高`%us` + 热点用户线程**：通常表明应用程序层面存在CPU计算瓶颈
+- **高`%sy`**：表明内核工作负载过重，需重点检查系统调用、锁竞争、网络协议栈、文件系统操作和中断处理
+- **高`%si`或`%hi`**：表明系统存在严重的中断压力，通常与网络设备或驱动程序相关
+- **高负载但`%us`和`%sy`适中**：不应仅关注CPU，还需排查I/O等待、任务阻塞和锁竞争问题
+- **总体CPU使用率高但无明显长期运行的热点进程**：需关注短生命周期进程的频繁创建销毁、进程派生风暴(fork storms)或线程突发(bursts)
 
-## Kernel Vs Application
+## 内核态与用户态性能瓶颈区分
 
-- Application space: hot functions are in the process itself; `perf` shows user functions dominating.
-- Kernel space: `perf` or `top` shows kernel functions, softirq, scheduler, TCP stack, or syscall paths dominating.
-- Mixed case: an application may trigger kernel bottlenecks through excessive syscalls, networking, or filesystem activity. Report both the kernel hotspot and the process causing it.
+- **用户态瓶颈特征**：性能热点位于应用程序自身代码中；`perf`工具显示用户函数占据主导地位
+- **内核态瓶颈特征**：`perf`或`top`工具显示内核函数、软中断(softirq)、调度器、TCP协议栈或系统调用路径占据主导地位
+- **混合型瓶颈**：应用程序通过过度的系统调用、网络操作或文件系统活动触发内核性能瓶颈。此类情况需同时报告内核热点和引发问题的应用程序进程

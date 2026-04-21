@@ -1,47 +1,42 @@
 ---
-name: linux-performance-analysis
-description: Diagnose Linux system performance problems and bottlenecks across CPU, memory, I/O, and network. Use when a user asks to analyze a Linux host that is slow, overloaded, laggy, timing out, dropping packets, swapping, blocked on disk, or showing high load/high latency, and the goal is to determine which subsystem is the bottleneck, whether the bottleneck is in kernel space or application space, and which process is responsible at the application layer.
+name: kernel-perf-analysis
+description: 诊断Linux系统性能问题和瓶颈，涵盖CPU、内存、I/O和网络子系统，当用户需要分析运行缓慢、过载、延迟、超时、丢包、交换、磁盘阻塞或显示高负载/高延迟的Linux主机时使用，目标是确定哪个子系统是瓶颈，瓶颈是在内核空间还是应用空间，以及在应用层哪个进程负责。
 ---
+## 概述
 
-# Linux Performance Analysis
+使用此技能执行结构化的Linux性能诊断。始终涵盖CPU、内存、I/O 和网络，并从系统范围的症状驱动分析，直到在应用层确定具体负责的进程。优先选择只读检查进行故障排除。如果用户仅提供命令输出，请用相同的工作流程解释该输出，而不是要求全新的数据集。
 
-## Overview
+## 安全第一（低侵入默认）
 
-Use this skill to perform a structured Linux performance diagnosis. Always cover CPU, memory, I/O, and network, and drive the analysis from system-wide symptoms down to the specific process when the bottleneck is in application space.
+默认采用最低侵入性的工作流程，尤其是在生产主机上。
 
-Prefer read-only inspection for troubleshooting. If the user only provides command output, interpret that output with the same workflow instead of asking for a completely new dataset.
+- L1（默认）：仅限只读、低开销的观察。
+- L2（有条件）：短时间、有针对性的采样，并有严格的时间限制。
+- L3（升级）：仅在获得用户明确批准后才进行附加、跟踪、数据包捕获、eBPF 或主动负载测试。
 
-## Safety First (Low Intrusion Default)
+在执行任何 L3 命令之前：
 
-Default to the least intrusive workflow, especially on production hosts.
+1. 确认主机角色（生产或非生产）和时间窗口。
+2. 用简短的一行说明预期开销。
+3. 设置明确的持续时间或采样上限。
+4. 优先选择能最大程度减少不确定性的单个命令。
 
-- L1 (default): read-only, low-overhead observation only.
-- L2 (conditional): short, targeted sampling with strict time limits.
-- L3 (escalation): attach, tracing, packet capture, eBPF, or active load tests only with explicit user approval.
+除非用户明确要求并接受风险，否则避免在生产环境中进行主动负载生成（例如 `iperf3`）。
 
-Before any L3 command:
+## 工作流程
 
-1. Confirm the host role (production or non-production) and time window.
-2. Explain expected overhead in one short line.
-3. Set an explicit duration or sample cap.
-4. Prefer one command that reduces uncertainty the most.
+1. 确定症状和时间窗口。
+2. 捕获轻量级的系统范围基线。
+3. 扫描 CPU、内存、I/O 和网络。
+4. 对于任何可疑区域，从系统级别深入到进程级别。
+5. 判断瓶颈主要是在内核空间还是应用空间。
+6. 提供明确回答这三个问题的结论。
 
-Avoid active load generation (for example `iperf3`) on production unless the user explicitly requests it and accepts the risk.
+## 基线
 
-## Workflow
+在深入分析之前先获取快速基线。尽可能重用用户已有的信息。
 
-1. Establish the symptom and time window.
-2. Capture a lightweight system-wide baseline.
-3. Sweep CPU, memory, I/O, and network.
-4. For any suspicious area, drill down from system level to process level.
-5. Decide whether the bottleneck is primarily in kernel space or application space.
-6. Deliver a conclusion that explicitly answers the required three questions.
-
-## Baseline
-
-Start with a quick baseline before deep dives. Reuse what the user already has when possible.
-
-Typical baseline commands:
+典型的基线命令：
 
 ```bash
 uname -a
@@ -51,53 +46,53 @@ vmstat 1 5
 pidstat 1 3
 ```
 
-Add the area-specific commands from the reference file that matches the current signal.
+根据当前信号添加参考文件中的特定区域命令。
 
-## Analysis Rules
+## 分析规则
 
-Analyze the four areas even if one problem looks obvious. The first suspicious metric is not always the root cause.
+即使一个问题看起来很明显，也要分析这四个区域。第一个可疑指标并不总是根本原因。
 
-For each area, follow the same pattern:
+对于每个区域，遵循相同的模式：
 
-1. Check overall system pressure.
-2. Confirm whether the pressure is sustained or bursty.
-3. Identify the top contributing processes, threads, sockets, or devices.
-4. Judge whether the hotspot is mostly kernel-side or application-side.
-5. Record the evidence, not just the guess.
+1. 检查整体系统压力。
+2. 确认压力是持续性的还是突发性的。
+3. 识别主要贡献的进程、线程、套接字或设备。
+4. 判断热点主要是在内核侧还是应用侧。
+5. 记录证据，而不仅仅是猜测。
 
-Treat these as common cross-signals:
+将这些视为常见的交叉信号：
 
-- High `wa` often points to I/O, not CPU.
-- High load average with low CPU usage can mean blocked tasks, usually I/O or lock waits.
-- High `sy`, `si`, `hi`, retransmits, or backlog pressure often points to kernel/network handling.
-- Swap, major page faults, reclaim stalls, or OOM events point to memory pressure.
-- Network symptoms can be caused upstream by CPU saturation, socket backlog, or application read/write behavior.
+- 高 `wa` 通常指向 I/O，而非 CPU。
+- 高负载平均值但低 CPU 使用率可能意味着被阻塞的任务，通常是 I/O 或锁等待。
+- 高 `sy`、`si`、`hi`、重传或积压压力通常指向内核/网络处理。
+- 交换、主要页面错误、回收停滞或 OOM 事件指向内存压力。
+- 网络症状可能是由上游的 CPU 饱和、套接字积压或应用程序读/写行为引起的。
 
-## Kernel Vs Application Judgment
+## 内核与应用判断
 
-Use this rule of thumb when classifying the bottleneck:
+在对瓶颈进行分类时，使用以下经验法则：
 
-- Classify as application space when the dominant cost is in user processes, user-space threads, request handlers, GC, query execution, serialization, compression, or other business/application logic.
-- Classify as kernel space when the dominant cost is in scheduling, interrupts, softirqs, reclaim, filesystem/block layer, TCP/IP stack, driver handling, syscall-heavy behavior, or other kernel-mediated paths.
-- If an application causes heavy kernel work, report both: the bottleneck layer is kernel space, and the triggering application process is the user-space process that is driving that kernel pressure.
+- 当主要成本在用户进程、用户空间线程、请求处理程序、GC、查询执行、序列化、压缩或其他业务/应用逻辑中时，归类为应用空间。
+- 当主要成本在调度、中断、软中断、回收、文件系统/块层、TCP/IP 协议栈、驱动程序处理、系统调用密集型行为或其他内核中介路径中时，归类为内核空间。
+- 如果应用程序导致繁重的内核工作，则同时报告两者：瓶颈层是内核空间，触发内核压力的用户空间进程是驱动该内核压力的应用程序进程。
 
-## Required References
+## 必需参考
 
-Read the matching reference file before doing a deep dive:
+在进行深入分析之前阅读匹配的参考文件：
 
 - CPU: [references/cpu.md](references/cpu.md)
-- Memory: [references/memory.md](references/memory.md)
+- 内存: [references/memory.md](references/memory.md)
 - I/O: [references/io.md](references/io.md)
-- Network: [references/network.md](references/network.md)
+- 网络: [references/network.md](references/network.md)
 
-Use [references/report-template.md](references/report-template.md) for the final write-up format.
+使用 [references/report-template.md](references/report-template.md) 作为最终报告的格式。
 
-## Output Contract
+## 输出约定
 
-Always end with a concise conclusion section that clearly states:
+始终以简洁的结论部分结束，明确说明：
 
-1. The primary bottleneck is CPU, memory, I/O, or network.
-2. The bottleneck in that area is mainly in kernel space or application space.
-3. If application space is involved, which process is the main trigger.
+1. 主要瓶颈是 CPU、内存、I/O 还是网络。
+2. 该区域的瓶颈主要在内核空间还是应用空间。
+3. 如果涉及应用空间，哪个进程是主要触发器。
 
-If the evidence is incomplete, say what is confirmed, what is only suspected, and which single next command would most reduce uncertainty.
+如果证据不完整，请说明已确认的内容、仅怀疑的内容，以及哪个单一的下一个命令最能减少不确定性。
