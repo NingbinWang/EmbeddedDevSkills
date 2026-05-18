@@ -1,238 +1,278 @@
 ---
 name: kernel-driver-code-gen
-description: 检查并完善Kernel内核驱动代码实现，协助使用者尽快完成相应的代码。TRIGGER when: 设计文档已完成，需要生成 驱动代码、注册到内核的驱动模块、编译测试。关键词：代码生成、op_host、op_kernel、tiling、kernel、框架适配、算子注册。
+description: |
+  生成Linux内核驱动代码与Kbuild/Makefile。覆盖：字符设备、平台驱动、块设备、网络设备、
+  设备树绑定、中断处理、DMA、内核内存管理、设备模型(sysfs/kobject)。
+  TRIGGER when: 设计文档已完成，需要生成内核驱动模块代码、编译配置、加载测试。
+  关键词：内核驱动、字符设备、块设备、网络设备、platform_driver、设备树、DTS、中断、DMA、
+  Kbuild、Makefile、insmod、modprobe、module_init、file_operations、ioctl、probe、remove、
+  blk-mq、gendisk、net_device、sk_buff、NAPI。
 ---
 
-# Kernel驱动代码生成与框架适配
+# Linux 内核驱动代码生成
 
-需要查看
+根据设计文档或用户描述，生成符合 Linux 内核编码规范的驱动代码和 Kbuild/Makefile。
 
-**前置条件**: 设计文档 用户指定的驱动设计文档
+## 核心原则
 
-## 工作流程总览
+1. **内核规范** — 遵循 kernel coding style（Documentation/process/coding-style.rst）
+2. **错误处理** — 所有内核 API 调用必须检查返回值，资源获取失败时逆序释放
+3. **可移植性** — 优先使用标准内核 API，避免架构特定代码
+4. **模块化** — 清晰的 probe/remove 生命周期，支持热插拔
+
+## 前置条件
+
+调用此技能时，需提供以下信息之一：
+
+| 输入 | 说明 |
+|------|------|
+| 设计文档路径 | 读取文档后分析需求，生成代码 |
+| 功能描述 | 直接描述要实现的驱动功能 |
+| 硬件规格 | 寄存器地址、中断号、DMA 通道等 |
+
+如果缺少输入，提示用户补充。至少需要知道：
+- 驱动类型（字符设备 / 平台驱动 / I2C / SPI / USB 等）
+- 硬件接口（寄存器映射 / 中断 / DMA）
+- 用户空间接口（read/write / ioctl / sysfs）
+
+## 工作流程
 
 ```
-读取设计文档 → 加载 reference → 选择模板 → 生成相应的代码
-    → 框架适配 (主要适配内核的Modules框架)
-    → 调用相关技能(编译 + 安装 + 测试)
+读取设计文档 → 确定驱动类型 → 加载对应参考文档
+    → 选择模板 → 生成代码 → 自检清单 → 输出
 ```
 
----
+### 阶段 1：需求分析
 
-## 阶段 1: 加载参考文档
+从输入中提取：
 
-**MANDATORY — READ BEFORE CODING**: 读取 [`references/GUIDE.md`](references/GUIDE.md)，根据设计文档中的算子类型，加载对应的 reference 文件。**绝对不要跳过此步骤。**
+| 提取项 | 用途 |
+|--------|------|
+| 驱动类型 | 选择模板（见阶段2） |
+| 硬件接口 | 寄存器布局、中断、DMA |
+| 用户空间接口 | file_operations / sysfs / ioctl |
+| 并发需求 | 锁策略（spinlock / mutex / rwlock） |
+| 设备树绑定 | compatible 字符串、属性定义 |
 
-## 阶段 2: 读取设计文档
+### 阶段 2：确定驱动类型与参考文档
 
-从 `ascend-kernel/csrc/ops/<op_name>/design.md` 提取：
+| 驱动类型 | 参考文档 | 模板 |
+|----------|----------|------|
+| 字符设备 | [references/01_char_device.md](references/01_char_device.md) | [templates/char_device.c](templates/char_device.c) |
+| 平台驱动 | [references/02_platform_driver.md](references/02_platform_driver.md) | [templates/platform_driver.c](templates/platform_driver.c) |
+| 块设备 | [references/08_block_device.md](references/08_block_device.md) | [templates/block_device.c](templates/block_device.c) |
+| 网络设备 | [references/09_net_device.md](references/09_net_device.md) | [templates/net_device.c](templates/net_device.c) |
+| 中断处理 | [references/03_interrupt_handling.md](references/03_interrupt_handling.md) | — |
+| DMA/内存 | [references/04_dma_and_memory.md](references/04_dma_and_memory.md) | — |
+| Kbuild | [references/05_kbuild_makefile.md](references/05_kbuild_makefile.md) | [templates/Makefile](templates/Makefile) |
+| 内核 API | [references/06_kernel_apis.md](references/06_kernel_apis.md) | — |
+| 设备模型 | [references/07_device_model.md](references/07_device_model.md) | — |
 
-| 提取项 | 设计文档章节 | 用途 |
-|--------|------------|------|
-| 函数签名 + 支持的数据类型 | 原型设计 | op_host 函数原型、kernel 模板参数 |
-| 算子类型 | Tiling 切分 → 步骤1 | 选择模板 (elementwise / row) |
-| UB 分配表 | UB 空间分配 | 推导 bufferCoefficient、InitBuffer 大小 |
-| 计算伪代码 | Kernel 实现 | Compute 函数逻辑 |
+**MANDATORY**: 读取对应参考文件后再生成代码。
 
----
+### 阶段 3：生成代码
 
-## 阶段 3: 选择模板并生成代码
+#### 文件结构
 
-根据算子类型选择对应模板，复制到工程目录后修改。
+典型内核模块文件布局：
 
-### 模板选择
+```
+mydriver/
+├── Kconfig          # 配置选项（可选，用于集成到内核树）
+├── Makefile         # 模块编译规则
+├── mydriver.c       # 驱动主文件
+├── mydriver.h       # 私有头文件（寄存器定义、数据结构）
+└── mydriver_dt.h    # 设备树相关定义（可选）
+```
 
-| 算子类型 | op_host 模板 | op_kernel 模板 |
-|---------|-------------|---------------|
-| Elementwise (ReLU, GELU, Add...) | [`templates/elementwise_op_host.cpp`](templates/elementwise_op_host.cpp) | [`templates/elementwise_op_kernel.cpp`](templates/elementwise_op_kernel.cpp) |
-| 行处理 (LayerNorm, Softmax...) | [`templates/row_op_host.cpp`](templates/row_op_host.cpp) | [`templates/row_op_kernel.cpp`](templates/row_op_kernel.cpp) |
+#### 内核编码风格要点
 
-**MANDATORY**: 读取对应模板文件的完整内容，复制到目标路径后修改。
+```c
+/*
+ * 缩进：Tab = 8 空格
+ * 行宽：80 列（警告），100 列（硬限制）
+ * 命名：小写 + 下划线，避免驼峰
+ * 注释：/* */ 风格（不用 //，虽然现在也接受）
+ * 函数：尽量短小，每个函数做一件事
+ */
 
-### 生成步骤
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
 
-1. 读取选中的 op_host 和 op_kernel 模板的完整内容
-2. 将内容写入 `ascend-kernel/csrc/ops/<op_name>/op_host/<op_name>.cpp` 和 `op_kernel/<op_name>.cpp`（覆盖骨架占位文件）
-3. 替换所有占位符（`<op_name>`, `<OpName>` 等）
-4. 根据设计文档修改：
-   - **op_host**: 函数签名、输入校验、`bufferCoefficient`、EXEC_KERNEL_CMD 参数
-   - **op_kernel**: Init 的 GM 参数、InitBuffer 大小、Compute 计算逻辑
+/* 前向声明放在文件顶部 */
+static int mydriver_probe(struct platform_device *pdev);
+static int mydriver_remove(struct platform_device *pdev);
 
-### FP16/FP32 模板分支
+/* 数据结构定义 */
+struct mydriver_priv {
+    struct device *dev;
+    void __iomem *regs;
+    int irq;
+    /* ... */
+};
+```
 
-Kernel 模板使用 `template <typename T>` 泛型 + `if constexpr` 分支处理不同数据类型：
+#### 模块初始化/退出框架
 
-```cpp
-if constexpr (sizeof(T) == sizeof(float)) {
-    // float32 直接计算
-} else {
-    // fp16/bf16: Cast 升精度 → fp32 计算 → Cast 降精度
+```c
+static int __init mydriver_init(void)
+{
+    return platform_driver_register(&mydriver_driver);
+}
+module_init(mydriver_init);
+
+static void __exit mydriver_exit(void)
+{
+    platform_driver_unregister(&mydriver_driver);
+}
+module_exit(mydriver_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Author Name");
+MODULE_DESCRIPTION("Driver description");
+MODULE_VERSION("1.0");
+```
+
+#### 错误处理模式（goto 清理）
+
+```c
+static int mydriver_probe(struct platform_device *pdev)
+{
+    struct mydriver_priv *priv;
+    struct resource *res;
+    int ret;
+
+    priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+    if (!priv)
+        return -ENOMEM;
+
+    priv->dev = &pdev->dev;
+    platform_set_drvdata(pdev, priv);
+
+    /* 获取资源 */
+    res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    if (!res) {
+        dev_err(&pdev->dev, "no memory resource\n");
+        return -ENODEV;
+    }
+
+    priv->regs = devm_ioremap_resource(&pdev->dev, res);
+    if (IS_ERR(priv->regs))
+        return PTR_ERR(priv->regs);
+
+    /* 获取中断 */
+    priv->irq = platform_get_irq(pdev, 0);
+    if (priv->irq < 0)
+        return priv->irq;
+
+    ret = devm_request_irq(&pdev->dev, priv->irq, mydriver_isr,
+                           IRQF_SHARED, "mydriver", priv);
+    if (ret) {
+        dev_err(&pdev->dev, "failed to request irq: %d\n", ret);
+        return ret;
+    }
+
+    /* 注册字符设备 / 创建 sysfs 等 */
+    ret = mydriver_register_cdev(priv);
+    if (ret)
+        return ret;
+
+    dev_info(&pdev->dev, "probe successful\n");
+    return 0;
 }
 ```
 
-AscendC 编译器支持 C++17 `if constexpr`，可安全用于模板分支。如需兼容旧编译器，也可用 `sizeof(T) == 4` 的普通 if（编译器会优化掉死分支）。
+#### file_operations 模板
 
-### 模板修改要点
-
-#### 硬件参数获取（模板已内置）
-
-模板使用平台 API 动态获取硬件参数，不再硬编码：
-
-```cpp
-#include "tiling/platform/platform_ascendc.h"
-
-auto ascendc_platform = platform_ascendc::PlatformAscendCManager::GetInstance();
-int64_t coreNum = static_cast<int64_t>(ascendc_platform->GetCoreNumAiv());
-uint64_t ubSize;
-ascendc_platform->GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-// 需要 workspace 时:
-// uint64_t sysWorkspaceSize = ascendc_platform->GetLibApiWorkSpaceSize();
+```c
+static const struct file_operations mydriver_fops = {
+    .owner          = THIS_MODULE,
+    .open           = mydriver_open,
+    .release        = mydriver_close,
+    .read           = mydriver_read,
+    .write          = mydriver_write,
+    .unlocked_ioctl = mydriver_ioctl,
+    .poll           = mydriver_poll,
+    .mmap           = mydriver_mmap,
+};
 ```
 
-#### bufferCoefficient 推导
+### 阶段 4：生成 Makefile
 
-从设计文档 UB 分配表推导——所有 Buffer 总大小 = `bufferCoefficient * tileLength`：
-- 将 UB 分配表中所有 Buffer 的"总大小"列加和
-- 结果形如 `tileLength * N`，则 `bufferCoefficient = N`
-- 不同 dtype 系数不同时用 `if (dtypeSize == 2) {...} else {...}` 分支
+```makefile
+# 外部模块编译（out-of-tree）
+obj-m := mydriver.o
 
-#### FP16/BF16 升精度
+# 多文件模块
+# mydriver-objs := main.o hw.o utils.o
 
-**FP16 和 BF16 都必须升精度到 FP32 计算再转回**。模板中已标注升精度代码的插入位置，取消注释并填充计算逻辑即可。
+KDIR ?= /lib/modules/$(shell uname -r)/build
 
-#### GM ↔ UB 搬运（DataCopyPad）
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
-**生产代码必须使用 DataCopyPad**（不要使用 DataCopy 进行 GM↔UB 搬运）：
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
 
-```cpp
-// CopyIn: GM → UB
-AscendC::DataCopyExtParams copyInParams{1,
-    static_cast<uint32_t>(curTileLength * sizeof(T)), 0, 0, 0};
-AscendC::DataCopyPadExtParams<T> padParams{false, 0, 0, static_cast<T>(0)};
-AscendC::DataCopyPad(xLocal, xGm[progress * tileLength], copyInParams, padParams);
-
-// CopyOut: UB → GM
-AscendC::DataCopyExtParams copyOutParams{1,
-    static_cast<uint32_t>(curTileLength * sizeof(T)), 0, 0, 0};
-AscendC::DataCopyPad(yGm[progress * tileLength], yLocal, copyOutParams);
+# 安装模块
+install:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules_install
+	depmod -a
 ```
 
-> **注意**: 模板文件中可能使用 DataCopy 以简化示例，生产代码应替换为 DataCopyPad。
+### 阶段 5：自检清单
 
-#### ReduceSum/ReduceMax 注意
+生成代码后逐项检查：
 
-归约操作可能修改源 tensor，必须先备份：
+#### 头文件与模块
+- [ ] 包含必要的头文件（linux/module.h, linux/kernel.h 等）
+- [ ] MODULE_LICENSE("GPL")（如需使用 GPL-only 符号）
+- [ ] module_init / module_exit 定义
 
-```cpp
-AscendC::Adds(backup, src, 0.0f, len);  // 备份
-AscendC::ReduceSum<float, true>(result, backup, sharedTmp, dimLen);
-```
+#### 资源管理
+- [ ] 使用 devm_ 系列 API（自动释放）
+- [ ] probe 失败时资源正确逆序释放
+- [ ] remove 中释放所有手动申请的资源
+- [ ] ioremap 配对 iounmap（devm 版自动处理）
 
----
+#### 并发安全
+- [ ] 共享数据有适当的锁保护
+- [ ] 中断上下文中使用 spinlock（不能用 mutex）
+- [ ] 持有 spinlock 时禁用中断（spin_lock_irqsave）
 
-## 阶段 4: 框架适配
+#### 设备树
+- [ ] compatible 字符串与 DTS 绑定一致
+- [ ] 使用 of_match_table 匹配设备树节点
+- [ ] 使用 platform_get_resource / platform_get_irq 获取硬件资源
 
-### 4.1 更新 `csrc/ops.h`
-
-在 `namespace ascend_kernel` 中添加函数声明：
-
-```cpp
-<返回类型> <op_name>(<参数列表>);
-```
-
-### 4.2 更新 `csrc/register.cpp`
-
-在 `TORCH_LIBRARY_FRAGMENT(npu, m)` 中添加 schema：
-
-```cpp
-m.def("<op_name>(<schema_参数>) -> <返回类型>");
-```
-
-在 `TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)` 中添加实现：
-
-```cpp
-m.impl("<op_name>", TORCH_FN(ascend_kernel::<op_name>));
-```
-
-**Schema 语法速查**:
-
-| C++ 类型 | Schema 类型 | 示例 |
-|---------|------------|------|
-| `const at::Tensor &` | `Tensor` | `Tensor self` |
-| `at::IntArrayRef` | `int[]` | `int[] kernel_size` |
-| `int64_t` | `int` | `int dim=-1` |
-| `double` | `float` | `float eps=1e-5` |
-| `bool` | `bool` | `bool flag=False` |
-| `c10::optional<at::Tensor>` | `Tensor?` | `Tensor? weight=None` |
-| `c10::optional<int64_t>` | `int?` | `int? divisor=None` |
-
-### 4.3 更新 `csrc/CMakeLists.txt`
-
-在 `FILE(GLOB OP_SRCS ...)` 中添加 host 源文件：
-
-```cmake
-${PROJECT_OP_SRC_BASE}/ops/<op_name>/op_host/<op_name>.cpp
-```
-
-在 `ascendc_library(no_workspace_kernel STATIC ...)` 中添加 kernel 源文件：
-
-```cmake
-${PROJECT_OP_SRC_BASE}/ops/<op_name>/op_kernel/<op_name>.cpp
-```
-
----
-
-## 阶段 5: 编译安装与测试
-
-**MANDATORY — 按 `ascendc-operator-compile-debug` skill 流程执行**：
-
-1. 加载环境：source CANN 环境变量，激活conda环境
-2. 确保 `build.sh` 有执行权限：`chmod +x build.sh`
-3. 编译工程：`bash build.sh`
-4. 验证编译成功：`ls output/ascend_kernel*.whl`
-5. 安装 whl 包：`pip install output/ascend_kernel*.whl --force-reinstall --no-deps`
-6. 生成测试文件 `tests/test_<op_name>.py`
-7. 运行功能测试：`python tests/test_<op_name>.py`
-8. 运行精度测试：`pytest tests/test_<op_name>.py -v`
-9. 编译/测试失败进入排错循环（最多 3 次）
-10. **精度测试失败时**：若 allclose 不通过、输出偏差、全零或 NaN，**MUST** 读取并按 `ascendc-operator-precision-debug` skill 流程排查根因（误差分析 → 代码审查 → 实验隔离 → 插桩定位 → 修复验证）
-
-> **实战经验**：每次 shell 命令前都要 source 环境变量，否则会找不到编译工具或 Python 包。
-
----
-
-## 生成后检查清单
-
-### op_host
-- [ ] namespace `ascend_kernel`，include `torch_kernel_helper.h` + `tiling/platform/platform_ascendc.h` + `aclrtlaunch_<op_name>.h`
-- [ ] 使用平台 API 获取 coreNum 和 ubSize（不硬编码）
-- [ ] bufferCoefficient 与设计文档 UB 分配表一致
-- [ ] EXEC_KERNEL_CMD 所有参数均为左值
-- [ ] [行处理] padding/去 padding 正确
-
-### op_kernel
-- [ ] include `kernel_operator.h`，BUFFER_NUM = 2
-- [ ] Init 整核/尾核偏移正确，InitBuffer 大小与 UB 分配表一致
-- [ ] Process 尾 tile 对齐（alignedTailLen）
-- [ ] AllocTensor/FreeTensor 配对，EnQue/DeQue 配对
-- [ ] **FP16/BF16 必须升精度到 FP32 计算**
-- [ ] ReduceSum 前备份源数据
-
-### 框架适配
-- [ ] ops.h 声明与 op_host 函数签名一致
-- [ ] register.cpp schema 参数类型/默认值正确
-- [ ] csrc/CMakeLists.txt 添加了 host 和 kernel 源文件
+#### 内存
+- [ ] 中断上下文用 GFP_ATOMIC
+- [ ] 进程上下文用 GFP_KERNEL
+- [ ] 所有 kmalloc 都检查返回值
+- [ ] DMA 缓冲区使用 dma_alloc_coherent 或 dma_map_single
 
 ## 反模式清单
 
-- **NEVER** 让 FP16/BF16 直接参与复杂数学计算（Mul/Div/Exp/Tanh 等），必须先 Cast 到 FP32
-- **NEVER** 在 EXEC_KERNEL_CMD 中传右值（临时对象、字面量、表达式结果）
-- **NEVER** 在 kernel 中使用 bool 参数类型，用 int64_t 替代
-- **NEVER** 对 GM↔UB 搬运使用 DataCopy，必须用 DataCopyPad
-- **NEVER** 在 ReduceSum/ReduceMax 后直接复用源 tensor（归约可能修改源数据）
-- **NEVER** 在 kernel 中使用 `std::min/max/abs/sqrt/exp` 等标准库函数
-- **NEVER** 向高维切分 API 传入 repeatTime > 255（uint8_t 会静默截断为 0）
-- **NEVER** 修改 `cmake/` 或 `csrc/utils/` 下的文件
-- **NEVER** 在 register.cpp 的 schema 中遗漏默认值（如 `int dim` 应写为 `int dim=-1`）
-- **NEVER** 硬编码核数或 UB 大小，必须通过平台 API 获取
-- **NEVER** 让 ReduceMax/Sum 的 dst 与 tmpBuffer 指向同一块内存
+- **NEVER** 在中断上下文中调用可能睡眠的函数（mutex, kmalloc(GFP_KERNEL), msleep）
+- **NEVER** 忘记检查 platform_get_resource / platform_get_irq 返回值
+- **NEVER** 在 probe 中硬编码中断号或寄存器地址（从设备树获取）
+- **NEVER** 使用 deprecated API（如 request_region, check_mem_region）
+- **NEVER** 忘记 MODULE_LICENSE
+- **NEVER** 在 remove 中遗漏资源释放
+- **NEVER** 使用 memcpy_fromio / memcpy_toio 之外的方式访问 I/O 内存
+- **NEVER** 在持有 spinlock 时调用 schedule / msleep / mutex_lock
+- **NEVER** 使用 printk 不带 KERN_* 级别前缀
+- **NEVER** 忽略 devm_ioremap_resource 的 IS_ERR 检查
+
+## 输出格式
+
+输出包含：
+
+1. **功能说明** — 一段话描述驱动功能
+2. **文件列表** — 所有生成的文件
+3. **编译命令** — make 命令
+4. **加载测试** — insmod / modprobe 命令
+5. **设备树片段** — DTS 节点示例（如适用）
+6. **完整源码** — 可直接编译的文件
+7. **注意事项** — 已知限制、依赖条件

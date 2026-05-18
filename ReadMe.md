@@ -14,12 +14,16 @@
 
 希望得到大家的关注，十分感谢，多多提issue。 作者会及时更新。
 
+同时，本项目还提供了相应的wiki，大家可以自行查看。
+
 <br>
 
 
 [![Star History Chart](https://api.star-history.com/svg?repos=NingbinWang/EmbeddedDevSkills&type=Date)](https://star-history.com/#NingbinWang/EmbeddedDevSkills&Date)
 
 </div>
+
+
 
 ## 技能描述
 * kernel-drvier-code-gen - 主要是生成相应的内核驱动代码，该技能主要是自动生成相应的内核驱动的代码框架，然后由用户根据自己的Spec或者需求进行修改，同时提供驱动代码检查。
@@ -58,6 +62,8 @@ API Error: 400 {"error":{"message":"This model's maximum context length is 10240
 暂时没有将这些技能放到网络上直接用nxp skills add 添加。目前需要手动来添加。
 
 直接将kerel-code-review直接复制粘贴到 **.claude/skills/**,如果没有skills文件夹，请手动创建一个skills文件夹即可。
+
+
 
 ---
 
