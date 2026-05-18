@@ -1,0 +1,50 @@
+# 时间段任务调度配置
+# 生成时间: (由 Hermes 自动生成)
+# 触发方式: 对 Hermes 说 "运行定时任务"
+#
+# 时间段格式:
+#   "morning"            → 08:00-12:00
+#   "afternoon"          → 12:00-18:00
+#   "evening"            → 18:00-22:00
+#   "night"              → 22:00-05:00 (跨午夜)
+#   "early_morning"      → 05:00-08:00
+#   "HH:MM-HH:MM"       → 自定义精确范围
+#   "Mon-Fri HH:MM-HH:MM" → 带星期限定
+#
+# 任务类型:
+#   type: command → 执行 shell 命令，需填写 command 字段
+#   type: skill   → 调用其他 skill，需填写 skill + action 字段
+
+schedule:
+
+  - time: "morning"
+    name: "晨间任务"
+    tasks:
+      - type: command
+        name: "系统检查"
+        command: "df -h / && free -h && uptime"
+
+  - time: "afternoon"
+    name: "下午任务"
+    tasks:
+      - type: command
+        name: "进程检查"
+        command: "ps aux --sort=-%mem | head -10"
+
+  - time: "evening"
+    name: "晚间任务"
+    tasks:
+      - type: command
+        name: "今日变更"
+        command: "find ~ -maxdepth 2 -mtime 0 -type f 2>/dev/null | head -20"
+
+  - time: "night"
+    name: "夜间巡检"
+    tasks:
+      - type: command
+        name: "资源概览"
+        command: "df -h / && free -h && uptime"
+
+default_task:
+  name: "默认"
+  action: "当前不在任何定义的时间段内"
